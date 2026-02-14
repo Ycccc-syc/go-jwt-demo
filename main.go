@@ -24,26 +24,26 @@ func main() {
 	r.POST("/login", func(c *gin.Context) {
 		var req LoginReq
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"msg": "参数错误"})
+			utils.Error(c, http.StatusBadRequest, "参数错误")
 			return
 		}
 
 		// 从数据库查用户
 		var user models.User
 		if err := database.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"msg": "账号或密码错误"})
+			utils.Error(c, http.StatusUnauthorized, "账号或密码错误")
 			return
 		}
 
 		// 校验密码
 		if !user.CheckPassword(req.Password) {
-			c.JSON(http.StatusUnauthorized, gin.H{"msg": "账号或密码错误"})
+			utils.Error(c, http.StatusUnauthorized, "账号或密码错误")
 			return
 		}
 
 		// 生成 token
 		token, _ := utils.GenerateToken(user.ID)
-		c.JSON(http.StatusOK, gin.H{
+		utils.Success(c, gin.H{
 			"msg":   "登录成功",
 			"token": token,
 		})
@@ -55,8 +55,8 @@ func main() {
 	{
 		auth.GET("/user/info", func(c *gin.Context) {
 			userID, _ := c.Get("userID")
-			c.JSON(http.StatusOK, gin.H{
-				"msg":    "已登录",
+			utils.Success(c, gin.H{
+				"msg":    "已登陆",
 				"userID": userID,
 			})
 		})
@@ -70,7 +70,8 @@ func JWTMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := c.GetHeader("Authorization")
 		if tokenStr == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "未提供token"})
+			utils.Error(c, http.StatusUnauthorized, "未提供token")
+			c.Abort()
 			return
 		}
 
@@ -82,7 +83,8 @@ func JWTMiddleware() gin.HandlerFunc {
 		// 解析 token
 		claims, err := utils.ParseToken(tokenStr)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"msg": "token无效或过期"})
+			utils.Error(c, http.StatusUnauthorized, "token已无效或已过期")
+			c.Abort()
 			return
 		}
 
